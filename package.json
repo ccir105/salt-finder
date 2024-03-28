@@ -1,0 +1,30 @@
+{
+  "name": "salt-finder",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "find-salt": "ts-node-dev -r tsconfig-paths/register --ignore-watch ./node_modules src/index.ts",
+    "find-key": "ts-node-dev -r tsconfig-paths/register --ignore-watch ./node_modules src/wallet.ts",
+    "salt": "ts-node-dev -r tsconfig-paths/register --ignore-watch ./node_modules src/newWay.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^20.10.6",
+    "ts-node-dev": "^2.0.0",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "bip32": "^4.0.0",
+    "bip39": "^3.1.0",
+    "bitcoinjs-lib": "^6.1.5",
+    "cluster": "^0.7.7",
+    "ethers": "^6.9.2",
+    "secp256k1": "^5.0.0",
+    "tiny-secp256k1": "^2.2.3"
+  }
+}

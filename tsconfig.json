@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "es2020",
+    "experimentalDecorators": true,
+    "module": "commonjs",
+    "rootDir": "./",
+    "baseUrl": "./",
+    "resolveJsonModule": true,
+    "allowArbitraryExtensions": true,
+    "allowJs": true,
+    "declaration": false,
+    "sourceMap": false,
+    "isolatedModules": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "noImplicitAny": false,
+    "strictNullChecks": true /* When type checking, take into account 'null' and 'undefined'. */,
+    "skipLibCheck": true
+  },
+  "include": ["./**/*", "./**/*.d.ts"],
+  "exclude": ["node_modules"]
+}
