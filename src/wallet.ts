@@ -5,81 +5,114 @@ import * as ecc from 'tiny-secp256k1';
 import * as bip39 from 'bip39';
 import * as BTC from 'bitcoinjs-lib';
 import {ethers} from "ethers";
+import Crypto from "./crypto";
 
 let numCPUs = os.cpus().length;
 
-//
 interface KeyPair {
     phrase: string;
     password: string;
 }
 
+const targetHexPattern = "0xbaddad"
+
 class WalletApp {
 
-    async initFinder(expectedPassword: string) {
+    async initFinder() {
 
         if (cluster.isMaster) {
             console.log(`Master ${process.pid} is running`);
             let totalTries = 0;
-            let lastPhrase = "";
-            let lastPassword = '';
-            setInterval(() => {
-                console.log("Total tries:", totalTries, "Last Password:", lastPassword);
-                console.log("Last Phrase:", lastPhrase);
-            }, 10000);
-            for (let i = 0; i < numCPUs; i++) {
-                const worker = cluster.fork();
 
-                worker.on('message', (message) => {
-                    if (typeof message.tries === 'number') {
-                        totalTries += message.tries;
-                        lastPassword = message.password;
-                        lastPhrase = message.phrase;
-                    }
-                });
+            for (let i = 0; i < numCPUs; i++) {
+                cluster.fork();
             }
+
+            cluster.on('message', (worker, message) => {
+                if (message.type === 'FOUND') {
+                    console.log(`Found matching address: ${message.address} with phrase: ${message.phrase}`);
+                    // Implement your logic here, e.g., saving the address or shutting down the workers.
+                } else if (message.type === 'PROGRESS') {
+                    totalTries += message.tries;
+                    console.log(`Total tries: ${totalTries}`);
+                }
+            });
+
             cluster.on('exit', (worker) => {
                 console.log(`Worker ${worker.process.pid} finished`);
             });
         } else {
             console.log(`Worker ${process.pid} started`);
-            await this.generateAndFind();
+            await this._generateAndFind();
         }
     }
 
-    async generateAndFind(expectedPhrase = "weed") {
-        let searching = true;
+    async _generateAndFind() {
         let tries = 0;
-        let batchSize = 100;
-        while (searching) {
-            let keyPairs: KeyPair[] = [];
+        let progressUpdateInterval = 1000; // Update the master every 1000 tries
+        while (true) {
+            const wallet = ethers.Wallet.createRandom(); // Adjust based on the actual ethers.js v6 API
+            const phrase = wallet.mnemonic!.phrase; // Adjust according to actual API
+            tries++;
 
-            for (let i = 0; i < batchSize; i++) {
-                const wallet = ethers.Wallet.createRandom();
-                const fullPhrase = wallet.mnemonic!.phrase.split(" ");
-                const password = fullPhrase.pop();
-
-                let pair: KeyPair = {phrase: wallet.mnemonic!.phrase, password: password!};
-                keyPairs.push(pair);
+            if (tries % progressUpdateInterval === 0) {
+                process.send? process.send({type: 'PROGRESS', tries}): null;
+                tries = 0; // Reset tries after sending progress update
             }
 
-            for (let pair of keyPairs) {
-                tries++;
-                if (tries == 50) {
-                    if (cluster.worker) {
-                        this.decode(pair.phrase, pair.password);
-                    }
-                    searching = false;
-                }
+            if (wallet.address.toLowerCase().startsWith(targetHexPattern)) {
+                this.prepareWallet(phrase)
             }
-
-            process.send!({
-                tries,
-                phrase: keyPairs[keyPairs.length - 1].phrase,
-                password: keyPairs[keyPairs.length - 1].password
-            });
-
         }
+    }
+
+    prepareWallet(phrase: string) {
+
+        const keys = phrase;
+
+        const beforeEncryption = ethers.Wallet.fromPhrase(phrase);
+
+        const decryptionKey = Crypto.getRandom32();
+
+        const keysArray = keys.split(" ");
+
+        const reversed = keysArray.reverse();
+
+        const firstAndLastWord = [reversed[0], reversed[reversed.length - 1]];
+
+        const keysWithoutLastAndFirst = keysArray.slice(1, keysArray.length - 1);
+
+        const keyEncrypted = Crypto.encrypt(JSON.stringify(keysWithoutLastAndFirst), decryptionKey);
+
+        const firstAndLastWordEncrypted = Crypto.encrypt(JSON.stringify(firstAndLastWord), decryptionKey);
+
+        const firtAndLastWordDecrypted = Crypto.decrypt(firstAndLastWordEncrypted!, decryptionKey);
+
+        const keysDecrypted = Crypto.decrypt(keyEncrypted!, decryptionKey);
+
+        const keysDecryptedArray = JSON.parse(keysDecrypted);
+
+        const lastAndFirstDecryptedArray = JSON.parse(firtAndLastWordDecrypted);
+
+        keysDecryptedArray.unshift(lastAndFirstDecryptedArray[0])
+
+        keysDecryptedArray.push(lastAndFirstDecryptedArray[1])
+
+        const finalKey = keysDecryptedArray.reverse().join(" ");
+
+        const wallet = ethers.Wallet.fromPhrase(finalKey);
+
+        if (beforeEncryption.address !== wallet.address) {
+            console.log("Decryption failed");
+            return
+        }
+
+        console.log("Wallet Address:", wallet.address);
+        console.log("Secret Key:", decryptionKey);
+        console.log("Phrase Encrypted:", keyEncrypted)
+        console.log("2 Words Encrypted:", firstAndLastWordEncrypted)
+        console.log("Recovery Key:", finalKey)
+
     }
 
     decode(phrase: string, password: string) {
@@ -95,7 +128,7 @@ class WalletApp {
 
         const node = bip32.fromSeed(seed);
 
-        const derivationPath = "m/44'/0'/0'/0/0"; // Standard Bitcoin derivation path
+        const derivationPath = "m/44'/0'/0'/0/0";
         const keyPair = node.derivePath(derivationPath);
 
         const {address} = BTC.payments.p2pkh({pubkey: keyPair.publicKey, network: BTC.networks.bitcoin});
@@ -110,4 +143,4 @@ class WalletApp {
 }
 
 const walletApp = new WalletApp();
-walletApp.initFinder("weed");
+walletApp.initFinder();

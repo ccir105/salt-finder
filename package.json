@@ -6,7 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "find-salt": "ts-node-dev -r tsconfig-paths/register --ignore-watch ./node_modules src/index.ts",
-    "find-key": "ts-node-dev -r tsconfig-paths/register --ignore-watch ./node_modules src/wallet.ts",
+    "find-safe-address": "ts-node-dev -r tsconfig-paths/register --ignore-watch ./node_modules src/wallet.ts",
     "salt": "ts-node-dev -r tsconfig-paths/register --ignore-watch ./node_modules src/newWay.ts"
   },
   "keywords": [],
@@ -23,6 +23,7 @@
     "bip39": "^3.1.0",
     "bitcoinjs-lib": "^6.1.5",
     "cluster": "^0.7.7",
+    "crypto-js": "^4.2.0",
     "ethers": "^6.9.2",
     "secp256k1": "^5.0.0",
     "tiny-secp256k1": "^2.2.3"
