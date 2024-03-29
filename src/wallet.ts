@@ -1,5 +1,3 @@
-import cluster from 'cluster';
-import os from 'os';
 import BIP32Factory from 'bip32';
 import * as ecc from 'tiny-secp256k1';
 import * as bip39 from 'bip39';
@@ -7,80 +5,7 @@ import * as BTC from 'bitcoinjs-lib';
 import {ethers} from "ethers";
 import Crypto from "./crypto";
 
-let numCPUs = os.cpus().length;
-
-interface KeyPair {
-    phrase: string;
-    password: string;
-}
-
-const targetHexPattern = "0xbaddad"
-
 class WalletApp {
-
-    async initFinder() {
-
-        if (cluster.isMaster) {
-            console.log(`Master ${process.pid} is running`);
-            let totalTries = 0;
-
-            for (let i = 0; i < numCPUs; i++) {
-                cluster.fork();
-            }
-
-            cluster.on('message', (worker, message) => {
-                if (message.type === 'FOUND') {
-                    console.log(`Found matching address: ${message.address} with phrase: ${message.phrase}`);
-                    // Implement your logic here, e.g., saving the address or shutting down the workers.
-                } else if (message.type === 'PROGRESS') {
-                    totalTries += message.tries;
-                    console.log(`Total tries: ${totalTries}`);
-                }
-            });
-
-            cluster.on('exit', (worker) => {
-                console.log(`Worker ${worker.process.pid} finished`);
-            });
-        } else {
-            console.log(`Worker ${process.pid} started`);
-            await this._generateAndFind();
-        }
-    }
-
-    async _generateAndFind(batchSize = 500) {
-        let totalTries = 0;
-        const progressUpdateInterval = 1000; // Update the master every 1000 tries
-        let intervalTries = 0; // Tracks tries since the last progress update
-
-        while (true) {
-            let batch = this.generateWallets(batchSize);
-            for (let {wallet, phrase} of batch) {
-                totalTries++;
-                intervalTries++;
-
-                if (wallet.address.toLowerCase().startsWith(targetHexPattern)) {
-                    await this.prepareWallet(phrase);
-                    // If you wish to stop after finding a match, you can break or return here
-                }
-            }
-
-            if (intervalTries >= progressUpdateInterval) {
-                process.send? process.send({type: 'PROGRESS', tries: totalTries}): null;
-                intervalTries = 0; // Reset interval tries after sending progress update
-            }
-        }
-    }
-
-    generateWallets(batchSize) {
-        let wallets: any = [];
-        for (let i = 0; i < batchSize; i++) {
-            const wallet = ethers.Wallet.createRandom(); // Assume createRandom() is valid in ethers.js v6
-            const phrase = wallet.mnemonic!.phrase;
-            wallets.push({ wallet, phrase });
-        }
-        return wallets;
-    }
-
     prepareWallet(phrase: string) {
 
         const keys = phrase;
@@ -127,17 +52,11 @@ class WalletApp {
         console.log("Phrase Encrypted:", keyEncrypted)
         console.log("2 Words Encrypted:", firstAndLastWordEncrypted)
         console.log("Recovery Key:", finalKey)
-
     }
 
-    decode(phrase: string, password: string) {
-        const combinedPhrase = `${phrase} ${password}`;
+    decodeBtc(phrase: string) {
 
-        const wallet = ethers.Wallet.fromPhrase(combinedPhrase);
-
-        console.log("Ethereum wallet: ", wallet.address, wallet.privateKey);
-
-        const seed = bip39.mnemonicToSeedSync(combinedPhrase);
+        const seed = bip39.mnemonicToSeedSync(phrase);
 
         const bip32 = BIP32Factory(ecc);
 
@@ -152,10 +71,8 @@ class WalletApp {
         console.log("Bitcoin wallet: ", address, privateKeyWIF);
 
         console.log("Seed Phrase: ", phrase);
-        console.log("Password: ", password);
         console.log("\n");
     }
 }
 
-const walletApp = new WalletApp();
-walletApp.initFinder();
+export default new WalletApp;

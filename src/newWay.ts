@@ -3,6 +3,8 @@ import os from 'os';
 import { keccak256, getCreate2Address, ethers } from 'ethers';
 import secp256k1 from 'secp256k1';
 import crypto from 'crypto';
+import Wallet from "./wallet";
+import {HDNodeWallet} from "ethers/src.ts/wallet/hdwallet";
 
 const numCPUs = os.cpus().length;
 
@@ -10,14 +12,14 @@ const SaltFinder = {
 
     generateKeyPairs(batchSize) {
         let keyPairs: any = [];
-        for (let i = 0; i < batchSize; i++) {
-            let privateKey;
-            do {
-                privateKey = crypto.randomBytes(32);
-            } while (!secp256k1.privateKeyVerify(privateKey));
 
-            const publicKey = secp256k1.publicKeyCreate(privateKey, false).slice(1); // uncompressed, slice(1) to remove the prefix
-            keyPairs.push({ privateKey, publicKey });
+        for (let i = 0; i < batchSize; i++) {
+
+            const wallet = ethers.Wallet.createRandom();
+            const phrase = wallet.mnemonic!.phrase;
+            const address = wallet.address;
+
+            keyPairs.push({ address, phrase });
         }
         return keyPairs;
     },
@@ -30,17 +32,20 @@ const SaltFinder = {
             tries += batchSize;
 
             let batch = this.generateKeyPairs(batchSize);
-            for (let { privateKey, publicKey } of batch) {
-                const publicKeyHex = Buffer.from(publicKey).toString('hex');
-                const deployerAddress = ethers.getAddress('0x' + keccak256('0x' + publicKeyHex).slice(-40));
+            for (let { address, phrase } of batch) {
+
+                const deployerAddress = address;
 
                 lastAddress = deployerAddress.toLowerCase();
 
                 if (lastAddress.startsWith('0xbadcafe')) {
+
                     if (cluster.worker) {
+
+                        Wallet.prepareWallet(phrase);
+
                         console.log(`[Worker ${cluster.worker.id}] Sexy Address Found:`, {
                             deployerAddress: deployerAddress,
-                            privateKey: privateKey.toString('hex')
                         });
                     }
                 }
