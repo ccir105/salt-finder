@@ -1,10 +1,7 @@
 import cluster from 'cluster';
 import os from 'os';
-import { keccak256, getCreate2Address, ethers } from 'ethers';
-import secp256k1 from 'secp256k1';
-import crypto from 'crypto';
+import { ethers } from 'ethers';
 import Wallet from "./wallet";
-import {HDNodeWallet} from "ethers/src.ts/wallet/hdwallet";
 
 const numCPUs = os.cpus().length;
 
@@ -24,7 +21,7 @@ const SaltFinder = {
         return keyPairs;
     },
 
-    findSalt(batchSize = 1000) {
+    findSalt(batchSize = 1000, str = "0xbad") {
         let tries = 0;
         let lastAddress = '';
 
@@ -38,7 +35,7 @@ const SaltFinder = {
 
                 lastAddress = deployerAddress.toLowerCase();
 
-                if (lastAddress.startsWith('0xbadcafe')) {
+                if (lastAddress.startsWith(str)) {
 
                     if (cluster.worker) {
 
@@ -83,5 +80,8 @@ if (cluster.isMaster) {
     });
 } else {
     console.log(`Worker ${process.pid} started`);
-    SaltFinder.findSalt(100);
+    const argv = process.argv.slice(2);
+    const strToFind = `0x${argv[0] || "bad"}`;
+    console.log("Finding address starting with:", strToFind);
+    SaltFinder.findSalt(100, strToFind);
 }
