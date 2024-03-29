@@ -24,7 +24,7 @@ const SaltFinder = {
         return keyPairs;
     },
 
-    findSalt(batchSize = 10) {
+    findSalt(batchSize = 1000) {
         let tries = 0;
         let lastAddress = '';
 
