@@ -47,23 +47,38 @@ class WalletApp {
         }
     }
 
-    async _generateAndFind() {
-        let tries = 0;
-        let progressUpdateInterval = 1000; // Update the master every 1000 tries
-        while (true) {
-            const wallet = ethers.Wallet.createRandom(); // Adjust based on the actual ethers.js v6 API
-            const phrase = wallet.mnemonic!.phrase; // Adjust according to actual API
-            tries++;
+    async _generateAndFind(batchSize = 500) {
+        let totalTries = 0;
+        const progressUpdateInterval = 1000; // Update the master every 1000 tries
+        let intervalTries = 0; // Tracks tries since the last progress update
 
-            if (tries % progressUpdateInterval === 0) {
-                process.send? process.send({type: 'PROGRESS', tries}): null;
-                tries = 0; // Reset tries after sending progress update
+        while (true) {
+            let batch = this.generateWallets(batchSize);
+            for (let {wallet, phrase} of batch) {
+                totalTries++;
+                intervalTries++;
+
+                if (wallet.address.toLowerCase().startsWith(targetHexPattern)) {
+                    await this.prepareWallet(phrase);
+                    // If you wish to stop after finding a match, you can break or return here
+                }
             }
 
-            if (wallet.address.toLowerCase().startsWith(targetHexPattern)) {
-                this.prepareWallet(phrase)
+            if (intervalTries >= progressUpdateInterval) {
+                process.send? process.send({type: 'PROGRESS', tries: totalTries}): null;
+                intervalTries = 0; // Reset interval tries after sending progress update
             }
         }
+    }
+
+    generateWallets(batchSize) {
+        let wallets: any = [];
+        for (let i = 0; i < batchSize; i++) {
+            const wallet = ethers.Wallet.createRandom(); // Assume createRandom() is valid in ethers.js v6
+            const phrase = wallet.mnemonic!.phrase;
+            wallets.push({ wallet, phrase });
+        }
+        return wallets;
     }
 
     prepareWallet(phrase: string) {
