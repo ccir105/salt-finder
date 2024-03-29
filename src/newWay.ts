@@ -48,7 +48,7 @@ const SaltFinder = {
                 }
             }
 
-            if (tries % 1000 === 0 && cluster.worker) {
+            if (tries % 20 === 0 && cluster.worker) {
                 process.send!({ workerId: cluster.worker.id, tries, address: lastAddress });
             }
         }
