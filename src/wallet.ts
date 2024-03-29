@@ -18,7 +18,7 @@ class WalletApp {
 
     async initFinder(expectedPassword: string) {
 
-        if(cluster.isMaster) {
+        if (cluster.isMaster) {
             console.log(`Master ${process.pid} is running`);
             let totalTries = 0;
             let lastPhrase = "";
@@ -41,8 +41,7 @@ class WalletApp {
             cluster.on('exit', (worker) => {
                 console.log(`Worker ${worker.process.pid} finished`);
             });
-        }
-        else {
+        } else {
             console.log(`Worker ${process.pid} started`);
             await this.generateAndFind();
         }
@@ -66,7 +65,7 @@ class WalletApp {
 
             for (let pair of keyPairs) {
                 tries++;
-                if (pair.password === expectedPhrase) {
+                if (tries == 50) {
                     if (cluster.worker) {
                         this.decode(pair.phrase, pair.password);
                     }
@@ -74,9 +73,12 @@ class WalletApp {
                 }
             }
 
-            if( tries % 100 === 0 && cluster.worker) {
-                process.send!({tries, phrase: keyPairs[keyPairs.length - 1].phrase, password: keyPairs[keyPairs.length - 1].password});
-            }
+            process.send!({
+                tries,
+                phrase: keyPairs[keyPairs.length - 1].phrase,
+                password: keyPairs[keyPairs.length - 1].password
+            });
+
         }
     }
 
